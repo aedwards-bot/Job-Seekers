@@ -4,7 +4,7 @@ import feedparser
 from openai import OpenAI
 
 # 1. Configuration
-RSS_URL = "https://rss.app/feeds/v1.1/_91NiiDqi8o4EtTNB.json"
+RSS_URL = "https://rss.app/feeds/_91NiiDqi8o4EtTNB.xml"
 DATA_FILE = "opportunities.json"
 PROCESSED_LOG = "processed_guids.txt"
 
