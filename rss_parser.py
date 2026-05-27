@@ -1,14 +1,14 @@
 import os
 import json
+import re
 import feedparser
 from openai import OpenAI
 
-# 1. Configuration
+# 1. Configuration (XML Fallback format)
 RSS_URL = "https://rss.app/feeds/_91NiiDqi8o4EtTNB.xml"
 DATA_FILE = "opportunities.json"
 PROCESSED_LOG = "processed_guids.txt"
 
-# Initialize OpenAI Client (Make sure OPENAI_API_KEY is set in your environment)
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 def load_processed_guids():
@@ -30,18 +30,22 @@ def load_existing_opportunities():
                 return []
     return []
 
+def clean_html_tags(text):
+    """Removes leftover HTML remnants from social descriptions."""
+    clean = re.compile('<.*?>')
+    return re.sub(clean, '', text).strip()
+
 def analyze_with_ai(title, description):
-    """Sends the post to OpenAI to filter and classify."""
     prompt = f"""
     You are an expert career counselor and economic development assistant. 
-    Analyze this item and decide if it's highly relevant to job seekers, career changers, or those seeking upskilling or social service supports.
+    Analyze this item and decide if it's highly relevant to job seekers, career changers, or those seeking upskilling or community support services.
 
     Title: {title}
     Description: {description}
 
     Rules:
-    - Set 'is_relevant' to true ONLY if it's a job listing, training/certification program, hiring fair, resume workshop, networking event, or support services (like childcare, housing, financial support, etc).
-    - Select exactly one 'category' from: "Hiring Fair", "Training & Upskilling", "Networking Event", "Job Listing", and "Support Services".
+    - Set 'is_relevant' to true ONLY if it's a job listing, training/certification program, hiring fair, resume workshop, networking event, or support services (like childcare, housing, utility/financial assistance).
+    - Select exactly one 'category' from: "Hiring Fair", "Training & Upskilling", "Networking Event", "Job Listing", "Support Services".
 
     Respond ONLY with a JSON object matching this schema:
     {{
@@ -49,91 +53,82 @@ def analyze_with_ai(title, description):
       "category": "string"
     }}
     """
-    
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",  # Highly cost-effective and accurate for classification
+            model="gpt-4o-mini",
             response_format={"type": "json_object"},
             messages=[{"role": "user", "content": prompt}],
             temperature=0.1
         )
-        
-        result = json.loads(response.choices[0].message.content)
-        return result
+        return json.loads(response.choices[0].message.content)
     except Exception as e:
         print(f"AI Analysis failed: {e}")
         return {"is_relevant": False, "category": None}
 
 def main():
-    print("Starting RSS processing pipeline...")
-    
+    print("Starting optimized social feed parser...")
     processed_guids = load_processed_guids()
     existing_opportunities = load_existing_opportunities()
     
-    # Fetch and parse the feed
     feed = feedparser.parse(RSS_URL)
     new_entries_found = False
     
-    # Process items from oldest to newest
     for entry in reversed(feed.entries):
         guid = entry.get("id") or entry.get("link")
-        
-        # Skip if we've already processed this item in a previous run
         if guid in processed_guids:
             continue
             
-        print(f"Processing new item: {entry.title}")
+        raw_title = entry.get("title", "")
+        # Handle cases where social feeds have no functional titles
+        if "posted on" in raw_title.lower() or len(raw_title) > 120:
+            title = ""
+        else:
+            title = raw_title
+
+        summary_content = entry.get("summary", "") or entry.get("description", "")
         
-        title = entry.get("title", "")
-        description = entry.get("summary", "") or entry.get("description", "")
-        link = entry.get("link", "")
-        pub_date = entry.get("published", "")
-        
-        # Extract image if available in feed tags
+        # Smart Image Extractor: Pull embedded graphics out of social media text markup
         image_url = None
-        if "links" in entry:
+        img_match = re.search(r'<img[^>]+src="([^">]+)"', summary_content)
+        if img_match:
+            image_url = img_match.group(1)
+        elif "links" in entry:
             for l in entry.links:
                 if "image" in l.get("type", ""):
                     image_url = l.get("href")
                     break
 
-        # Let the AI judge and tag the content
-        ai_decision = analyze_with_ai(title, description)
+        clean_description = clean_html_tags(summary_content)
+        # Strip generic systemic headers added by aggregators
+        clean_description = re.sub(r'^\[.*?\]', '', clean_description).strip()
+
+        ai_decision = analyze_with_ai(title, clean_description)
         
         if ai_decision.get("is_relevant"):
-            print(f"  --> 🎉 AI Flagged as RELEVANT: Tagged as [{ai_decision['category']}]")
+            print(f"  --> 🎉 Approved: [{ai_decision['category']}] -> {title[:40]}")
             
-            # Format to match the frontend expectations perfectly
             new_opportunity = {
                 "title": title,
-                "url": link,
+                "url": entry.get("link", ""),
                 "image": image_url,
-                "content_text": description,
+                "content_text": clean_description,
                 "ai_category": ai_decision.get("category"),
-                "date_published": pub_date,
-                "original_source": feed.feed.get("title", "City Feed")
+                "date_published": entry.get("published", entry.get("updated", "")),
+                "original_source": "Job & Training Resources"
             }
-            
-            # Prepend to the top of our list so newest items show first
             existing_opportunities.insert(0, new_opportunity)
             new_entries_found = True
-        else:
-            print("  --> ❌ AI Flagged as IRRELEVANT. Skipping.")
             
-        # Log the GUID so we never spend tokens analyzing it again
         save_processed_guid(guid)
         processed_guids.add(guid)
 
-    # If we found new relevant items, update the website's JSON file
     if new_entries_found:
-        # Keep the total file size reasonable (e.g., store only the latest 100 opportunities)
         existing_opportunities = existing_opportunities[:100]
-        
         with open(DATA_FILE, "w") as f:
             json.dump(existing_opportunities, f, indent=2)
-        print(f"Updated {DATA_FILE} successfully.")
+        print("Opportunities data synchronized.")
     else:
-        print("No new relevant opportunities found in this run.")
+        print("No new updates found.")
 
 if __name__ == "__main__":
     main()
