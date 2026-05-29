@@ -3,7 +3,7 @@ name: Run Opportunity Pipeline
 on:
   schedule:
     # Runs every 30 minutes
-    - cron: '*/30 * * * *'
+    - cron: '*/15 * * * *'
   # Allows you to manually trigger the script from the Actions tab anytime
   workflow_dispatch: 
 
