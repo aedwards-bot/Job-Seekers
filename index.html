@@ -339,7 +339,7 @@
     let dropdownInitialized = false;
     let cachedItems = []; 
 
-    // FIX 1: Resilient language toggle handling initialization race conditions
+    // Handle initialization race conditions with Google Translate dropdown integration
     function toggleLanguage() {
       const isSpanish = document.getElementById('langToggle').checked;
       const combo = document.querySelector('#google_translate_element select') || document.querySelector('.goog-te-combo');
@@ -348,7 +348,6 @@
         combo.value = isSpanish ? 'es' : 'en';
         combo.dispatchEvent(new Event('change'));
       } else {
-        // If Google Translate element isn't injected yet, wait 200ms and try again
         setTimeout(toggleLanguage, 200);
       }
     }
@@ -401,7 +400,7 @@
       let visibleCount = 0;
       posts.forEach((post) => {
         
-        // Retained for category filter logic
+        // Retained cleanly behind-the-scenes for the category dropdown logic
         let categoryName = post.ai_category || "Opportunity";
 
         if (activeFilter !== "All Opportunities" && categoryName !== activeFilter) {
@@ -426,14 +425,11 @@
         const cleanText = processedText.length > 400 ? processedText.substring(0, 400) + "..." : processedText;
         const textTag = cleanText ? `<div class="post-content"><p>${cleanText}</p></div>` : '';
         
-        // FIX 2: Grabs the data's post author field. Handles both simple strings and object trees safely.
-        let actualAuthor = "Opportunity";
-        if (post.author) {
-          actualAuthor = typeof post.author === 'object' ? (post.author.name || "Opportunity") : post.author;
-        }
+        // Extracts the human author field from the parsed RSS feed arrays
+        let authorName = (post.authors && post.authors[0]) ? post.authors[0].name : "City Update";
 
-        // Render actualAuthor inside the tag block instead of categoryName
-        const authorTag = `<span class="post-author"><span>${pubDate}</span><span>${actualAuthor}</span></span>`;
+        // Displays actual RSS author name inside the right side of the card footer
+        const authorTag = `<span class="post-author"><span>${pubDate}</span><span>${authorName}</span></span>`;
 
         const cardHtml = `<a href="${post.url}" class="post-card" target="_blank">${imgTag}${textTag}${authorTag}</a>`;
         
