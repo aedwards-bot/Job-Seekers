@@ -37,14 +37,15 @@ def clean_html_tags(text):
 
 def analyze_with_ai(description):
     prompt = f"""
-    You are an expert career counselor and workforce development specialists. Analyze the following local update and determine if it offers actionable economic advancement, employment, or structural community support.
+    You are an expert career counselor and civic data analyst. Analyze the following local update and determine if it offers actionable economic advancement, employment, or structural community support.
 
     Description: {description}
 
     Taxonomy Classification Rules:
     1. Set 'is_relevant' to true ONLY if the item contains a direct call-to-action for jobs, career development, educational advancement, small business growth, or critical safety-net services. General city announcements, generic news, or celebration posts must be set to false.
-    2. If 'is_relevant' is true, assign it to EXACTLY ONE of the following precise categories (use the exact string layout):
+    2. If 'is_relevant' is true, select ALL categories that apply from the list below. If multiple apply, include all relevant ones in the array. If only one applies, include just that one. Use the exact string layout specified.
 
+    Categories to choose from:
     - "Job Listings": Direct openings, employer recruitment drives, or corporate hiring posts.
     - "Hiring Fairs": Multi-employer career expos, community job fairs, or open-call interview events.
     - "Training & Upskilling": Multi-week programs, credential/certification courses, bootcamps, or degree tracks.
@@ -58,7 +59,7 @@ def analyze_with_ai(description):
     Respond ONLY with a valid JSON object matching this schema:
     {{
       "is_relevant": boolean,
-      "category": "string" or null
+      "categories": ["string"]
     }}
     """
     try:
@@ -70,7 +71,7 @@ def analyze_with_ai(description):
         )
         return json.loads(response.choices[0].message.content)
     except Exception as e:
-        return {"is_relevant": False, "category": None}
+        return {"is_relevant": False, "categories": []}
 
 def main():
     print("Running synchronized layout pipeline...")
@@ -105,20 +106,18 @@ def main():
         ai_decision = analyze_with_ai(clean_description)
         
         if ai_decision.get("is_relevant"):
-            # FIX: Safely parse RSS author structures from feedparser
+            # Safely extract RSS authors array or convert flat string fallback
             authors_data = entry.get("authors", [])
             if not authors_data and entry.get("author"):
-                # If 'authors' array doesn't exist, map the flat string to the array structure
                 authors_data = [{"name": entry.get("author")}]
 
-            # This object format matches your original code keys perfectly
             new_opportunity = {
                 "url": entry.get("link", ""),
                 "image": image_url,
                 "content_text": clean_description,
-                "ai_category": ai_decision.get("category"),
+                "ai_categories": ai_decision.get("categories", []),
                 "date_published": entry.get("published", entry.get("updated", "")),
-                "authors": authors_data  # <-- Added to match your web script's expectations
+                "authors": authors_data 
             }
             existing_opportunities.insert(0, new_opportunity)
             new_entries_found = True
