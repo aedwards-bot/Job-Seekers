@@ -37,17 +37,28 @@ def clean_html_tags(text):
 
 def analyze_with_ai(description):
     prompt = f"""
-    You are an expert career counselor. Identify if this social media post is highly relevant AND actionaable for job seekers or those looking for training/upskilling, networking opportunities, or community support services.
+    You are an expert career counselor and workforce development specialists. Analyze the following local update and determine if it offers actionable economic advancement, employment, or structural community support.
+
     Description: {description}
 
-    Rules:
-    - Set 'is_relevant' to true ONLY for job postings, hiring events, training programs, networking, or critical support services like housing, childcare, transit, or financial support.
-    - Choose exactly one: "Job Listings", "Hiring Fairs", "Training & Upskilling", "Networking Events", "Support Services".
+    Taxonomy Classification Rules:
+    1. Set 'is_relevant' to true ONLY if the item contains a direct call-to-action for jobs, career development, educational advancement, small business growth, or critical safety-net services. General city announcements, generic news, or celebration posts must be set to false.
+    2. If 'is_relevant' is true, assign it to EXACTLY ONE of the following precise categories (use the exact string layout):
 
-    Respond ONLY with a JSON object:
+    - "Job Listings": Direct openings, employer recruitment drives, or corporate hiring posts.
+    - "Hiring Fairs": Multi-employer career expos, community job fairs, or open-call interview events.
+    - "Training & Upskilling": Multi-week programs, credential/certification courses, bootcamps, or degree tracks.
+    - "Internships & Apprenticeships": Paid or unpaid temporary roles, co-ops, and union or trade apprenticeship programs.
+    - "Workshops & Seminars": Single-session educational events, resume builders, interview prep, or digital literacy classes.
+    - "Networking Events": Professional meetups, industry mixers, chambers of commerce events, or mentorship pairings.
+    - "Small Business & Entrepreneurship": Incubator programs, pitch competitions, vendor applications, or small business development clinics.
+    - "Grants & Financial Aid": Scholarships, small business funding, capital grants, or individual financial relief programs.
+    - "Support Services": Food security resources, childcare assistance, expungement clinics, transit passes, or housing stability services that remove barriers to work.
+
+    Respond ONLY with a valid JSON object matching this schema:
     {{
       "is_relevant": boolean,
-      "category": "string"
+      "category": "string" or null
     }}
     """
     try:
