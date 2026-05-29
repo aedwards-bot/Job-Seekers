@@ -329,10 +329,10 @@
   <script>
     const CATEGORY_LIST = [
       "All Opportunities", 
-      "Hiring Fair", 
+      "Hiring Fairs", 
       "Training & Upskilling", 
-      "Networking Event", 
-      "Job Listing",
+      "Networking Events", 
+      "Job Listings",
       "Support Services"
     ];
 
@@ -381,13 +381,13 @@
       }
     }
 
-    function populateDropdown() {
+  function populateDropdown() {
       const filter = document.getElementById('authorFilter');
       filter.innerHTML = '';
       CATEGORY_LIST.forEach(cat => {
         const option = document.createElement('option');
         option.value = cat;
-        option.textContent = cat === "All Opportunities" ? cat : cat + "s";
+        option.textContent = cat; // <-- Clean pass-through. No hidden "s" added here.
         filter.appendChild(option);
       });
       dropdownInitialized = true;
